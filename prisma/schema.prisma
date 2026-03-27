@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres:ET_Intelligence@2026@db.skzugjsmnimzituwlfxd.supabase.co:5432/postgres"
+}
+
+model Article {
+  id           String   @id @default(uuid())
+  title        String
+  summary      String
+  link         String   @unique
+  published_at DateTime
+  topic_tag    String?
+  created_at   DateTime @default(now())
+}
