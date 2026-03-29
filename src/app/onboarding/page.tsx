@@ -37,7 +37,10 @@ const QUESTIONS = [
 
 export default function OnboardingPage() {
     const router = useRouter();
-    const { data: session, status } = useSession();
+
+    // FIX: We brought `update` back to the hook!
+    const { data: session, status, update } = useSession();
+
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState<string[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -78,8 +81,10 @@ export default function OnboardingPage() {
                 });
 
                 if (res.ok) {
-                    // THE HACKATHON TRICK: Hard reload to the dashboard!
-                    // This clears React's memory cache and forces NextAuth to pull the fresh "isNewUser: false" from the DB.
+                    // FIX: Force NextAuth to update the browser's session token!
+                    await update({ isNewUser: false, persona: winningPersona });
+
+                    // Now safely route to the dashboard
                     window.location.href = "/";
                 } else {
                     console.error("Failed to save persona");

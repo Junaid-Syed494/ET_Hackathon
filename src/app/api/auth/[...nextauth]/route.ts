@@ -5,15 +5,13 @@ import bcrypt from "bcryptjs";
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-// Initialize Prisma with the V7 Postgres Adapter
-const connectionString = "postgresql://postgres:ET_Intelligence@2026@db.skzugjsmnimzituwlfxd.supabase.co:5432/postgres";
+// Initialize Prisma with the V7 Postgres Adapter (Fixed the %40 encoding in the password!)
+const connectionString = "postgresql://postgres:ET_Intelligence%402026@db.skzugjsmnimzituwlfxd.supabase.co:5432/postgres";
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-
 export const authOptions: NextAuthOptions = {
-    // This tells NextAuth to use our custom login page instead of the default one
     pages: {
         signIn: '/login',
     },
@@ -59,12 +57,20 @@ export const authOptions: NextAuthOptions = {
     ],
     callbacks: {
         // This attaches the user's database info to their secure web token
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session }) {
+            // Initial sign in
             if (user) {
                 token.id = user.id;
                 token.persona = (user as any).persona;
                 token.isNewUser = (user as any).isNewUser;
             }
+
+            // THE FIX: Catch the update() call from the frontend questionnaire!
+            if (trigger === "update" && session) {
+                token.persona = session.persona;
+                token.isNewUser = session.isNewUser;
+            }
+
             return token;
         },
         // This passes the token data to the frontend so our UI can read it
