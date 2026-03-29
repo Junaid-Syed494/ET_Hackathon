@@ -1,5 +1,6 @@
 import os
 import feedparser
+import uuid # <-- NEW: Import the UUID library
 from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -42,8 +43,9 @@ def fetch_and_store_news():
                 existing = supabase.table("Article").select("id").eq("link", entry.link).execute()
                 
                 if not existing.data:
-                    # Insert new article
+                    # Insert new article WITH a Python-generated ID!
                     supabase.table("Article").insert({
+                        "id": str(uuid.uuid4()), # <-- FIX: Generate a random unique ID
                         "title": entry.title,
                         "summary": entry.summary,
                         "link": entry.link,
@@ -54,7 +56,8 @@ def fetch_and_store_news():
                     print(f"✅ Added: {entry.title[:40]}...")
             
             except Exception as e:
-                print(f"⚠️ Failed to process article: {e}")
+                # Updated error print to give us the EXACT database rejection reason
+                print(f"⚠️ Failed to process article: {repr(e)}")
 
     print(f"🎉 Ingestion complete! Added {articles_added} new articles to Supabase.")
 

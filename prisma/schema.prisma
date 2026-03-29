@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://postgres:ET_Intelligence@2026@db.skzugjsmnimzituwlfxd.supabase.co:5432/postgres"
 }
 
 model Article {
@@ -15,4 +14,23 @@ model Article {
   published_at DateTime
   topic_tag    String?
   created_at   DateTime @default(now())
+}
+
+// schema.prisma
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String    // Hashed for security
+  persona       String?   // "investor", "founder", etc. (Null if they are new)
+  isNewUser     Boolean   @default(true)
+  interactions  Interaction[]
+}
+
+model Interaction {
+  id          String   @id @default(cuid())
+  userId      String
+  articleId   String
+  actionType  String   // "LIKE", "SHARE", or "READ"
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
 }

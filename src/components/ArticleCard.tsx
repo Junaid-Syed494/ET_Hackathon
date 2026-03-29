@@ -1,107 +1,113 @@
-import React from 'react';
+"use client";
 
-// Define the shape of data we might receive from the API/Database
-export interface ArticleData {
-    title?: string;
-    excerpt?: string;
-    summary?: string;
-    imageUrl?: string;
-    urlToImage?: string;
-    author?: string;
-    source?: { name: string } | string;
-    date?: string;
-    publishedAt?: string;
-    readTime?: string;
-    articleUrl?: string;
-    url?: string;
-}
+import { useState } from "react";
+import { Heart, Share2, ExternalLink, Clock, Play } from "lucide-react";
+import VisualModal from "./VisualModal"; // <-- Import our new Modal
 
 interface ArticleCardProps {
-    article: ArticleData;
-    index?: number;
+    article: any;
+    index: number;
 }
 
-const ArticleCard: React.FC<ArticleCardProps> = ({ article }) => {
-    // 1. Safely extract data with fallbacks
-    const title = article.title || "Untitled Article";
-    const excerpt = article.excerpt || article.summary || "No description available for this article.";
-    const articleUrl = article.articleUrl || article.url || "#";
-    const readTime = article.readTime || "3 min";
+export default function ArticleCard({ article, index }: ArticleCardProps) {
+    const [isLiked, setIsLiked] = useState(false);
+    const [isShared, setIsShared] = useState(false);
+    const [isVideoOpen, setIsVideoOpen] = useState(false); // Modal State
 
-    // Provide a default ET cover image if none is provided
-    const imageUrl = article.imageUrl || article.urlToImage || "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=800";
+    const handleInteract = async (actionType: "LIKE" | "SHARE") => {
+        if (actionType === "LIKE") setIsLiked(!isLiked);
+        if (actionType === "SHARE") {
+            setIsShared(true);
+            if (article.link) navigator.clipboard.writeText(article.link);
+        }
 
-    // 2. Safely handle the author field to prevent crashes
-    let authorName = "ET Intelligence"; // Default fallback
-
-    if (typeof article.author === 'string' && article.author.trim() !== '') {
-        authorName = article.author;
-    } else if (typeof article.source === 'object' && article.source?.name) {
-        authorName = article.source.name;
-    } else if (typeof article.source === 'string') {
-        authorName = article.source;
-    }
-
-    // Safely get the first letter for the avatar
-    const avatarInitial = authorName.charAt(0).toUpperCase();
-
-    // 3. Safely handle dates
-    let displayDate = "Recently";
-    if (article.date) {
-        displayDate = article.date;
-    } else if (article.publishedAt) {
-        displayDate = new Date(article.publishedAt).toLocaleDateString();
-    }
+        try {
+            await fetch('/api/interact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    articleId: article.id || article.link || `fallback-id-${index}`,
+                    actionType: actionType
+                })
+            });
+        } catch (error) {
+            console.error(`Failed to record ${actionType}`);
+        }
+    };
 
     return (
-        <article className="flex flex-col md:flex-row bg-white rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-slate-200 w-full group">
-            {/* Image Section */}
-            <a href={articleUrl} className="block overflow-hidden relative w-full md:w-1/3 h-48 md:h-auto shrink-0">
-                <img
-                    src={imageUrl}
-                    alt={`Cover image for ${title}`}
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ease-in-out"
-                    loading="lazy"
-                />
-            </a>
-
-            {/* Content Section */}
-            <div className="p-6 flex flex-col flex-grow">
-                {/* Title */}
-                <a href={articleUrl} className="block">
-                    <h3 className="text-xl font-bold text-slate-900 group-hover:text-red-600 transition-colors duration-200 line-clamp-2 mb-3">
-                        {title}
-                    </h3>
-                </a>
-
-                {/* Excerpt */}
-                <p className="text-slate-600 text-sm line-clamp-3 flex-grow leading-relaxed">
-                    {excerpt}
-                </p>
-
-                {/* Metadata Footer */}
-                <div className="mt-6 pt-4 flex items-center border-t border-slate-100">
-
-                    {/* Safe Avatar Render */}
-                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600 font-bold text-sm ring-2 ring-slate-50 shrink-0">
-                        {avatarInitial}
-                    </div>
-
-                    {/* Author Details & Date */}
-                    <div className="ml-3 flex flex-col">
-                        <span className="text-sm font-semibold text-slate-900 line-clamp-1">
-                            {authorName}
-                        </span>
-                        <div className="flex items-center text-xs text-slate-500 mt-0.5 space-x-1.5">
-                            <span>{displayDate}</span>
-                            <span aria-hidden="true">&middot;</span>
-                            <span>{readTime} read</span>
-                        </div>
+        <>
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group flex flex-col relative overflow-hidden">
+                <div className="flex justify-between items-start mb-4">
+                    <span className="text-[10px] font-bold tracking-widest uppercase text-red-500 bg-red-50 px-2.5 py-1 rounded-sm">
+                        {article.source || article.topic_tag || "Market Update"}
+                    </span>
+                    <div className="flex items-center gap-1.5 text-slate-400 text-xs font-medium">
+                        <Clock className="w-3.5 h-3.5" />
+                        {article.readTime || "3 min read"}
                     </div>
                 </div>
-            </div>
-        </article>
-    );
-};
 
-export default ArticleCard;
+                <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight group-hover:text-red-600 transition-colors">
+                    {article.title}
+                </h3>
+
+                <p className="text-slate-600 text-sm mb-6 line-clamp-2">
+                    {article.summary || article.excerpt}
+                </p>
+
+                {/* Interactive Actions Footer */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-auto">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => handleInteract("LIKE")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isLiked
+                                ? 'bg-red-50 text-red-500'
+                                : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                                }`}
+                        >
+                            <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                            {isLiked ? 'Liked' : 'Like'}
+                        </button>
+
+                        <button
+                            onClick={() => handleInteract("SHARE")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isShared
+                                ? 'bg-green-50 text-green-600'
+                                : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                                }`}
+                        >
+                            <Share2 className="w-4 h-4" />
+                            {isShared ? 'Copied!' : 'Share'}
+                        </button>
+                    </div>
+
+                    <a
+                        href={article.link || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs font-bold text-slate-900 hover:text-red-600 uppercase tracking-wide transition-colors"
+                    >
+                        Full Story <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                </div>
+
+                {/* THE NEW BUTTON: Shows up nicely at the bottom of the card */}
+                <button
+                    onClick={() => setIsVideoOpen(true)}
+                    className="w-full mt-5 bg-slate-900 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-red-600 transition-colors shadow-sm"
+                >
+                    <Play className="w-4 h-4 fill-current" />
+                    Experience Visually
+                </button>
+            </div>
+
+            {/* Render the modal outside the card layout flow */}
+            <VisualModal
+                isOpen={isVideoOpen}
+                onClose={() => setIsVideoOpen(false)}
+                article={article}
+            />
+        </>
+    );
+}
