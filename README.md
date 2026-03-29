@@ -1,41 +1,64 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌐 ET Intelligence: AI-Powered Enterprise Terminal
 
-## Getting Started
+> **A next-generation news consumption engine that learns who you are and builds your feed dynamically.**
 
-First, run the development server:
+ET Intelligence is a personalized, behavior-driven news dashboard built for modern professionals. It replaces generic news feeds with targeted "Intelligence Briefings" based on user personas, behavioral interactions, and real-time visual synthesis.
 
+---
+
+## ✨ Core Features
+
+* **🧠 AI Persona Calibration:** Brand-new users undergo a sleek onboarding calibration quiz. The engine analyzes their priorities and assigns them a tailored archetype (e.g., *Founder, Investor, Executive, Student*).
+* **🎯 Dynamic Intelligence Feed:** The dashboard automatically locks into the user's persona, filtering out noise and presenting only highly relevant market data and news.
+* **🎬 Zero-Cost Visual Studio:** Reading is optional. Users can click "Experience Visually" on any article to trigger an immersive, cinematic video overlay. It utilizes the browser's native Web Speech API and CSS animations to deliver a zero-latency, zero-cost audiovisual broadcast.
+* **🔄 Behavioral Feedback Loop:** Every "Like" and "Share" is tracked in the database, allowing the algorithm to continuously refine and perfect the user's intelligence feed over time.
+* **🌍 Vernacular Engine:** Instant UI translation capabilities, breaking down language barriers and making high-level financial intelligence accessible globally.
+
+---
+
+## 🏗️ Tech Stack & Architecture
+
+* **Frontend:** Next.js 14 (App Router), React, Tailwind CSS
+* **Authentication:** NextAuth.js (Credentials Provider with custom Bouncer logic)
+* **Database:** PostgreSQL (Hosted on Supabase)
+* **ORM:** Prisma (with the new V7 Postgres Adapter)
+* **Icons & UI:** Lucide React, Custom CSS Animations
+
+---
+
+## 🚀 Getting Started (Local Development)
+
+### 1. Clone the repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone [https://github.com/Junaid-Syed494/ET_Hackathon.git](https://github.com/Junaid-Syed494/ET_Hackathon.git)
+cd ET_Hackathon
 ```
+2. Install dependencies
+```Bash
+npm install
+```
+3. Set up Environment Variables
+Create a .env file in the root directory and add your secure keys:
+```
+Code snippet 
+# NextAuth Configuration
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="et_intelligence_super_secret_hackathon_key_2026"
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+# Supabase PostgreSQL Connection
+DATABASE_URL="postgresql://postgres:ET_Intelligence@2026@db.skzugjsmnimzituwlfxd.supabase.co:5432/postgres"
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# Supabase API Keys (For Python Ingestion Script)
+SUPABASE_URL="https://skzugjsmnimzituwlfxd.supabase.co"
+SUPABASE_KEY="sb_publishable_I6yPqk41YTE4VXBrqU-dtQ_3SiOu05_"
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# ET_Hackathon
-ET problem statement number 8 prototype.
->>>>>>> d0c942694eadd7d64b65c1a50a94288a5e76e7a0
+```
+4. Push the Database Schema
+```Bash
+npx prisma db push
+```
+5. Run the Development Server
+```Bash
+npm run dev
+```
+Open http://localhost:3000 to access the terminal.
