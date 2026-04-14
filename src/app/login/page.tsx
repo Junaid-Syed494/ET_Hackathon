@@ -1,129 +1,164 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { Activity, ArrowRight, Lock, AlertCircle } from "lucide-react";
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
     const router = useRouter();
-    const { data: session, status } = useSession();
-
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
-
-    // THE BOUNCER: If they are already logged in, kick them out of the login page!
-    useEffect(() => {
-        if (status === "authenticated") {
-            if ((session?.user as any)?.isNewUser) {
-                router.push("/onboarding");
-            } else {
-                router.push("/");
-            }
-        }
-    }, [status, session, router]);
+    const [isLogin, setIsLogin] = useState(true);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const [message, setMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setError("");
+        setError('');
+        setMessage('');
+        setIsLoading(true);
 
-        const res = await signIn("credentials", {
-            email,
-            password,
-            redirect: false,
-        });
+        if (!isLogin) {
+            // --- REGISTRATION FLOW ---
+            if (password !== confirmPassword) {
+                setError("Passwords do not match");
+                setIsLoading(false);
+                return;
+            }
 
-        if (res?.error) {
-            setError("Invalid credentials. Please try again.");
-            setLoading(false);
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || "Registration failed");
+                }
+
+                setMessage("Success! Check your email for the verification link.");
+                // Clear the form
+                setEmail('');
+                setPassword('');
+                setConfirmPassword('');
+            } catch (err: any) {
+                setError(err.message);
+            }
         } else {
-            // Force a hard reload to guarantee NextAuth pulls the freshest user data
-            window.location.href = "/";
+            // --- LOGIN FLOW ---
+            try {
+                const res = await signIn('credentials', {
+                    redirect: false,
+                    email,
+                    password,
+                });
+
+                if (res?.error) {
+                    setError(res.error);
+                } else {
+                    // Send them to the domain picker!
+                    router.push('/onboarding');
+                    router.refresh();
+                }
+            } catch (err) {
+                setError("An unexpected error occurred");
+            }
         }
+        setIsLoading(false);
     };
 
-    // Show a blank loading screen while the bouncer checks their ID
-    if (status === "loading" || status === "authenticated") {
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                <Activity className="w-8 h-8 text-red-500 animate-pulse" />
-            </div>
-        );
-    }
-
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 selection:bg-red-200 p-4">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="min-h-screen bg-black flex items-center justify-center p-4 font-sans text-gray-200">
+            <div className="max-w-md w-full bg-gray-900 border border-gray-800 rounded-xl p-8 shadow-2xl">
 
-                {/* Header */}
-                <div className="bg-slate-900 px-8 py-10 text-center">
-                    <div className="bg-red-600 w-12 h-12 rounded-lg flex items-center justify-center mx-auto shadow-lg mb-4">
-                        <Activity className="text-white w-7 h-7" />
-                    </div>
-                    <h1 className="text-2xl font-black tracking-tight font-serif uppercase text-white leading-none mb-2">
-                        ET Intelligence
-                    </h1>
-                    <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">
-                        Enterprise Auth Terminal
+                <div className="text-center mb-8">
+                    <h1 className="text-3xl font-bold text-white tracking-tight">The Brief</h1>
+                    <p className="text-sm text-gray-400 mt-2">
+                        {isLogin ? "Sign in to your terminal" : "Apply for terminal access"}
                     </p>
                 </div>
 
-                {/* Form */}
-                <div className="p-8">
-                    {error && (
-                        <div className="bg-red-50 text-red-600 text-sm font-medium px-4 py-3 rounded-lg mb-6 border border-red-100 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4" /> {error}
+                {error && (
+                    <div className="mb-4 p-3 rounded bg-red-900/50 border border-red-500 text-red-200 text-sm text-center">
+                        {error}
+                    </div>
+                )}
+
+                {message && (
+                    <div className="mb-4 p-3 rounded bg-green-900/50 border border-green-500 text-green-200 text-sm text-center">
+                        {message}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Email Address</label>
+                        <input
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full px-4 py-2 bg-black border border-gray-700 rounded focus:ring-1 focus:ring-white focus:border-white transition-colors outline-none text-white"
+                            placeholder="founder@startup.com"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                        <input
+                            type="password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full px-4 py-2 bg-black border border-gray-700 rounded focus:ring-1 focus:ring-white focus:border-white transition-colors outline-none text-white"
+                            placeholder="••••••••"
+                        />
+                    </div>
+
+                    {!isLogin && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Confirm Password</label>
+                            <input
+                                type="password"
+                                required
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full px-4 py-2 bg-black border border-gray-700 rounded focus:ring-1 focus:ring-white focus:border-white transition-colors outline-none text-white"
+                                placeholder="••••••••"
+                            />
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                                Work Email
-                            </label>
-                            <input
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-900 focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all outline-none"
-                                placeholder="analyst@firm.com"
-                            />
-                        </div>
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full bg-white text-black font-semibold py-2.5 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+                    >
+                        {isLoading ? "Processing..." : (isLogin ? "Access Terminal" : "Register")}
+                    </button>
+                </form>
 
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                                Secure Password
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type="password"
-                                    required
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-900 focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all outline-none"
-                                    placeholder="••••••••"
-                                />
-                                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-70 mt-4"
-                        >
-                            {loading ? "Authenticating..." : "Access Terminal"}
-                            {!loading && <ArrowRight className="w-4 h-4" />}
-                        </button>
-
-                        <p className="text-center text-xs text-slate-500 mt-6 font-medium">
-                            New user? Just enter an email and password to auto-register.
+                <div className="mt-6 text-center text-sm text-gray-500">
+                    {isLogin ? (
+                        <p>
+                            New user?{' '}
+                            <button onClick={() => { setIsLogin(false); setError(''); setMessage(''); }} className="text-white hover:underline">
+                                Apply here.
+                            </button>
                         </p>
-                    </form>
+                    ) : (
+                        <p>
+                            Already have an account?{' '}
+                            <button onClick={() => { setIsLogin(true); setError(''); setMessage(''); }} className="text-white hover:underline">
+                                Sign in.
+                            </button>
+                        </p>
+                    )}
                 </div>
             </div>
         </div>

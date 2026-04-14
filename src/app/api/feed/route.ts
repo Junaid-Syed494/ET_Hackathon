@@ -1,59 +1,45 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
 
-export async function GET(request: Request) {
+// Safely initialize Prisma with the Pooler & SSL
+const connectionString = process.env.DATABASE_URL || "";
+const pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false }
+});
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+export async function GET(req: Request) {
     try {
-        const { searchParams } = new URL(request.url);
-        const persona = searchParams.get('persona') || 'investor';
+        const url = new URL(req.url);
+        const domainsParam = url.searchParams.get("domains");
 
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_KEY;
-
-        if (!supabaseUrl || !supabaseKey) {
-            throw new Error("Missing Supabase keys in .env file");
-        }
-
-        // Fetch the latest articles from Supabase
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: articles, error: dbError } = await supabase
-            .from('Article')
-            .select('*')
-            .order('published_at', { ascending: false })
-            .limit(20);
-
-        if (dbError) throw dbError;
-        if (!articles || articles.length === 0) {
+        if (!domainsParam) {
             return NextResponse.json({ articles: [] });
         }
 
-        // SIMULATED AI PERSONALIZATION
-        // This perfectly mimics AI curation without the paywall
-        const personalizedFeed = articles.map(article => {
-            let insight = "A key update affecting broader market trends.";
+        const domainsArray = domainsParam.split(",");
 
-            if (persona === 'investor') {
-                insight = "Critical data point for evaluating portfolio risk and upcoming market shifts.";
-            } else if (persona === 'founder') {
-                insight = "Strategic industry movement that could impact startup funding or competitor positioning.";
-            } else if (persona === 'student') {
-                insight = "Excellent case study on real-world business dynamics and market evolution.";
-            } else if (persona === 'executive') {
-                insight = "High-level market signal necessary for strategic planning and resource allocation.";
-            }
+        // The Smart Fetch: Only grab articles that match the user's chosen domains
+        const articles = await prisma.article.findMany({
+            where: {
+                topic_tag: {
+                    in: domainsArray
+                }
+            },
+            orderBy: {
+                published_at: 'desc' // Newest articles first
+            },
+            take: 30 // Don't overwhelm the browser, just grab the latest 30
+        });
 
-            return {
-                ...article,
-                ai_insight: insight
-            };
-        }).slice(0, 5); // Return the top 5 personalized articles
+        return NextResponse.json({ articles });
 
-        return NextResponse.json({ articles: personalizedFeed });
-
-    } catch (error: any) {
-        console.error("🔥 API ROUTE ERROR:", error.message);
-        return NextResponse.json(
-            { error: error.message, articles: [] },
-            { status: 500 }
-        );
+    } catch (error) {
+        console.error("Feed Fetch Error:", error);
+        return NextResponse.json({ error: "Failed to fetch feed" }, { status: 500 });
     }
 }

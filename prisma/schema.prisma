@@ -14,16 +14,22 @@ model Article {
   published_at DateTime
   topic_tag    String?
   created_at   DateTime @default(now())
+
+  interactions Interaction[]
 }
 
-// schema.prisma
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String    // Hashed for security
-  persona       String?   // "investor", "founder", etc. (Null if they are new)
-  isNewUser     Boolean   @default(true)
-  interactions  Interaction[]
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String    // Hashed
+  selectedDomains String[]  @default([])
+  isNewUser       Boolean   @default(true)
+  
+  // --- THE NEW SECURITY FIELDS ---
+  emailVerified   DateTime? // If this is blank, they cannot log in
+  verifyToken     String?   @unique // The secret code we send to their email
+  
+  interactions    Interaction[]
 }
 
 model Interaction {
@@ -32,5 +38,7 @@ model Interaction {
   articleId   String
   actionType  String   // "LIKE", "SHARE", or "READ"
   createdAt   DateTime @default(now())
+  
   user        User     @relation(fields: [userId], references: [id])
+  article     Article  @relation(fields: [articleId], references: [id])
 }

@@ -1,25 +1,25 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import bcrypt from "bcrypt";
 
-// Initialize Prisma with the V7 Postgres Adapter (Fixed the %40 encoding in the password!)
-const connectionString = "postgresql://postgres:ET_Intelligence%402026@db.skzugjsmnimzituwlfxd.supabase.co:5432/postgres";
-const pool = new Pool({ connectionString });
+// Safely initialize Prisma with the Pooler & SSL
+const connectionString = process.env.DATABASE_URL || "";
+const pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false }
+});
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-export const authOptions: NextAuthOptions = {
-    pages: {
-        signIn: '/login',
-    },
+const handler = NextAuth({
     providers: [
         CredentialsProvider({
             name: "Credentials",
             credentials: {
-                email: { label: "Email", type: "email", placeholder: "user@example.com" },
+                email: { label: "Email", type: "text" },
                 password: { label: "Password", type: "password" }
             },
             async authorize(credentials) {
@@ -27,67 +27,62 @@ export const authOptions: NextAuthOptions = {
                     throw new Error("Missing email or password");
                 }
 
-                // 1. Check if the user already exists in our database
-                const existingUser = await prisma.user.findUnique({
+                const user = await prisma.user.findUnique({
                     where: { email: credentials.email }
                 });
 
-                // 2. HACKATHON TRICK: Auto-Register if they don't exist!
-                if (!existingUser) {
-                    const hashedPassword = await bcrypt.hash(credentials.password, 10);
-                    const newUser = await prisma.user.create({
-                        data: {
-                            email: credentials.email,
-                            password: hashedPassword,
-                            isNewUser: true, // Flags them to go to the Onboarding questionnaire
-                        }
-                    });
-                    return newUser;
+                if (!user) {
+                    throw new Error("User not found");
                 }
 
-                // 3. If they DO exist, verify their password
-                const isPasswordValid = await bcrypt.compare(credentials.password, existingUser.password);
+                // Check if the password matches the hashed password in the DB
+                const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+
                 if (!isPasswordValid) {
                     throw new Error("Invalid password");
                 }
 
-                return existingUser;
+                // NEW: The Verification Lockdown
+                if (!user.emailVerified) {
+                    throw new Error("Please verify your email before logging in.");
+                }
+
+                // Return the user object to be saved in the session
+                return {
+                    id: user.id,
+                    email: user.email,
+                    isNewUser: user.isNewUser,
+                    selectedDomains: user.selectedDomains
+                };
             }
         })
     ],
     callbacks: {
-        // This attaches the user's database info to their secure web token
-        async jwt({ token, user, trigger, session }) {
-            // Initial sign in
+        // This attaches the user's domains to their active session token
+        async jwt({ token, user }) {
             if (user) {
                 token.id = user.id;
-                token.persona = (user as any).persona;
                 token.isNewUser = (user as any).isNewUser;
+                token.selectedDomains = (user as any).selectedDomains;
             }
-
-            // THE FIX: Catch the update() call from the frontend questionnaire!
-            if (trigger === "update" && session) {
-                token.persona = session.persona;
-                token.isNewUser = session.isNewUser;
-            }
-
             return token;
         },
-        // This passes the token data to the frontend so our UI can read it
         async session({ session, token }) {
             if (session.user) {
                 (session.user as any).id = token.id;
-                (session.user as any).persona = token.persona;
                 (session.user as any).isNewUser = token.isNewUser;
+                (session.user as any).selectedDomains = token.selectedDomains;
             }
             return session;
         }
+    },
+    pages: {
+        signIn: '/login', // We will build this custom page next!
     },
     session: {
         strategy: "jwt",
     },
     secret: process.env.NEXTAUTH_SECRET,
-};
+});
 
-const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

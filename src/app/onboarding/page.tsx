@@ -1,164 +1,119 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Activity, ArrowRight, BrainCircuit } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getSession } from 'next-auth/react';
 
-const QUESTIONS = [
-    {
-        question: "What is your primary focus when reading the news?",
-        options: [
-            { text: "Market movements, ROI, and capital allocation.", trait: "investor" },
-            { text: "Venture capital, product scaling, and startup trends.", trait: "founder" },
-            { text: "Corporate strategy, compliance, and enterprise AI.", trait: "executive" },
-            { text: "Skill building, hiring trends, and tech education.", trait: "student" },
-        ]
-    },
-    {
-        question: "How do you prefer your data presented?",
-        options: [
-            { text: "Yield curves and quantitative metrics.", trait: "investor" },
-            { text: "Growth charts and competitor analysis.", trait: "founder" },
-            { text: "High-level summaries and operational metrics.", trait: "executive" },
-            { text: "Deep-dive tutorials and foundational explanations.", trait: "student" },
-        ]
-    },
-    {
-        question: "What is your ultimate end goal?",
-        options: [
-            { text: "Maximize portfolio returns.", trait: "investor" },
-            { text: "Achieve product-market fit or an exit.", trait: "founder" },
-            { text: "Optimize company efficiency and navigate policy.", trait: "executive" },
-            { text: "Land a top-tier role in the tech industry.", trait: "student" },
-        ]
-    }
+// The High-Value Intelligence Domains
+const AVAILABLE_DOMAINS = [
+    { id: "startups", label: "Startups & VC", icon: "🚀" },
+    { id: "ai", label: "Artificial Intelligence", icon: "🧠" },
+    { id: "geopolitics", label: "Geopolitics", icon: "🌍" },
+    { id: "indian_markets", label: "Indian Markets", icon: "📈" },
+    { id: "frugal_innovation", label: "Frugal Innovation", icon: "💡" },
+    { id: "corporate", label: "Corporate Strategy", icon: "🏢" },
+    { id: "science", label: "Deep Science", icon: "🔬" },
+    { id: "psychology", label: "Psychology", icon: "👤" },
+    { id: "gaming", label: "Gaming & Esports", icon: "🎮" },
+    { id: "sports", label: "Sports Business", icon: "⚽" },
+    { id: "tech", label: "Consumer Tech", icon: "📱" },
+    { id: "politics", label: "Global Politics", icon: "🏛️" }
 ];
 
 export default function OnboardingPage() {
     const router = useRouter();
+    const [selected, setSelected] = useState<string[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const [userEmail, setUserEmail] = useState<string | null>(null);
 
-    // FIX: We brought `update` back to the hook!
-    const { data: session, status, update } = useSession();
-
-    const [currentStep, setCurrentStep] = useState(0);
-    const [answers, setAnswers] = useState<string[]>([]);
-    const [isProcessing, setIsProcessing] = useState(false);
-
-    // THE BOUNCER: Protect the quiz page
+    // Fetch the logged-in user's session securely
     useEffect(() => {
-        if (status === "unauthenticated") {
-            router.push("/login"); // Kick out unauthorized users
-        } else if (status === "authenticated") {
-            // If they are NOT a new user, kick them to the dashboard
-            if (!(session?.user as any)?.isNewUser) {
-                router.push("/");
+        const fetchSession = async () => {
+            const session = await getSession();
+            if (session?.user?.email) {
+                setUserEmail(session.user.email);
+            } else {
+                router.push('/login'); // Kick them out if not logged in
             }
-        }
-    }, [status, session, router]);
+        };
+        fetchSession();
+    }, [router]);
 
-    const handleSelect = async (trait: string) => {
-        const newAnswers = [...answers, trait];
-        setAnswers(newAnswers);
+    const toggleDomain = (id: string) => {
+        setSelected(prev =>
+            prev.includes(id)
+                ? prev.filter(item => item !== id)
+                : [...prev, id]
+        );
+    };
 
-        if (currentStep < QUESTIONS.length - 1) {
-            setCurrentStep(currentStep + 1);
-        } else {
-            setIsProcessing(true);
+    const handleComplete = async () => {
+        if (selected.length < 3) return; // Force them to pick at least 3
+        setIsSaving(true);
 
-            const counts = newAnswers.reduce((acc, val) => {
-                acc[val] = (acc[val] || 0) + 1;
-                return acc;
-            }, {} as Record<string, number>);
+        try {
+            const res = await fetch('/api/user/domains', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: userEmail, domains: selected })
+            });
 
-            const winningPersona = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-
-            try {
-                const res = await fetch("/api/onboarding", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ persona: winningPersona }),
-                });
-
-                if (res.ok) {
-                    // FIX: Force NextAuth to update the browser's session token!
-                    await update({ isNewUser: false, persona: winningPersona });
-
-                    // Now safely route to the dashboard
-                    window.location.href = "/";
-                } else {
-                    console.error("Failed to save persona");
-                    setIsProcessing(false);
-                }
-            } catch (error) {
-                console.error("API error", error);
-                setIsProcessing(false);
+            if (res.ok) {
+                router.push('/feed'); // Send them to their custom feed!
             }
+        } catch (error) {
+            console.error("Failed to save domains");
+            setIsSaving(false);
         }
     };
 
-    // Show a blank loading screen while the bouncer checks their ID
-    if (status === "loading" || status === "unauthenticated" || (status === "authenticated" && !(session?.user as any)?.isNewUser)) {
-        return (
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-                <Activity className="w-8 h-8 text-red-500 animate-pulse" />
-            </div>
-        );
-    }
-
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-900 selection:bg-red-200 p-4 font-sans text-slate-100">
-            <div className="w-full max-w-2xl bg-slate-800 rounded-3xl shadow-2xl border border-slate-700 overflow-hidden relative">
-
-                {/* Progress Bar */}
-                <div className="absolute top-0 left-0 h-1.5 bg-slate-700 w-full">
-                    <div
-                        className="h-full bg-red-500 transition-all duration-500 ease-out"
-                        style={{ width: `${((currentStep + 1) / QUESTIONS.length) * 100}%` }}
-                    />
+        <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans selection:bg-gray-800">
+            <div className="max-w-4xl mx-auto mt-12">
+                <div className="mb-12 text-center md:text-left">
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+                        Calibrate your terminal.
+                    </h1>
+                    <p className="text-gray-400 text-lg">
+                        Select at least 3 intelligence domains to construct your custom feed.
+                    </p>
                 </div>
 
-                <div className="p-10 md:p-14">
-                    {isProcessing ? (
-                        <div className="py-20 flex flex-col items-center justify-center text-center space-y-6">
-                            <div className="relative">
-                                <BrainCircuit className="w-16 h-16 text-red-500 animate-pulse" />
-                                <div className="absolute inset-0 border-4 border-red-500/30 rounded-full animate-ping" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold font-serif mb-2">Analyzing Profile...</h2>
-                                <p className="text-slate-400">Calibrating your intelligence feed.</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="flex items-center gap-3 mb-10">
-                                <Activity className="w-6 h-6 text-red-500" />
-                                <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">
-                                    Terminal Calibration {currentStep + 1}/{QUESTIONS.length}
-                                </span>
-                            </div>
+                {/* The Domain Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
+                    {AVAILABLE_DOMAINS.map((domain) => {
+                        const isSelected = selected.includes(domain.id);
+                        return (
+                            <button
+                                key={domain.id}
+                                onClick={() => toggleDomain(domain.id)}
+                                className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all duration-200 ${isSelected
+                                    ? 'border-white bg-gray-900 shadow-[0_0_15px_rgba(255,255,255,0.1)]'
+                                    : 'border-gray-800 bg-black hover:border-gray-600 hover:bg-gray-900/50'
+                                    }`}
+                            >
+                                <span className="text-3xl mb-3">{domain.icon}</span>
+                                <span className="text-sm font-semibold text-center">{domain.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
 
-                            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-10 leading-tight">
-                                {QUESTIONS[currentStep].question}
-                            </h2>
-
-                            <div className="space-y-4">
-                                {QUESTIONS[currentStep].options.map((option, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => handleSelect(option.trait)}
-                                        className="w-full text-left p-5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700 hover:border-slate-500 transition-all group flex items-center justify-between"
-                                    >
-                                        <span className="text-lg font-medium text-slate-200 group-hover:text-white">
-                                            {option.text}
-                                        </span>
-                                        <ArrowRight className="w-5 h-5 text-slate-600 group-hover:text-red-400 transition-colors transform group-hover:translate-x-1" />
-                                    </button>
-                                ))}
-                            </div>
-                        </>
-                    )}
+                {/* The Action Bar */}
+                <div className="flex flex-col items-center border-t border-gray-800 pt-8">
+                    <p className="text-sm text-gray-500 mb-4">
+                        {selected.length} / 3 minimum selected
+                    </p>
+                    <button
+                        onClick={handleComplete}
+                        disabled={selected.length < 3 || isSaving}
+                        className={`px-8 py-3 rounded-full font-bold text-lg transition-all ${selected.length >= 3
+                            ? 'bg-white text-black hover:bg-gray-200 shadow-lg cursor-pointer'
+                            : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                            }`}
+                    >
+                        {isSaving ? "Initializing Feed..." : "Construct My Feed"}
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,6 +1,10 @@
-export default {
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
+
+export default defineConfig({
+    schema: "prisma/schema.prisma",
     datasource: {
-        // Notice the %40 replacing the @ in your password
-        url: "postgresql://postgres:ET_Intelligence%402026@db.skzugjsmnimzituwlfxd.supabase.co:5432/postgres"
-    }
-};
+        // We intentionally feed the CLI the DIRECT URL so migrations bypass the pooler!
+        url: env("DIRECT_URL"),
+    },
+});
